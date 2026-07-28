@@ -1,0 +1,27 @@
+{
+  "run_id": "20260728_205752",
+  "pipeline_version": "2.1.0",
+  "execution_time_seconds": 6.879296200000681,
+  "cities_processed": 7,
+  "api_summary": {
+    "openweather": {
+      "success": 7,
+      "failed": 0
+    },
+    "openmeteo": {
+      "success": 7,
+      "failed": 0
+    },
+    "aqicn": {
+      "success": 7,
+      "failed": 0
+    }
+  },
+  "rows_saved": 7,
+  "silver_rows": 21,
+  "missing_values": {},
+  "validation": {
+    "passed": true,
+    "failed_requests": []
+  }
+}
