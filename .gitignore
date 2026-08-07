@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+
+# Virtual environments
+.venv/
+.venv-hopsworks/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs and runtime files
+logs/
+*.log
+*.out
+*.err
+
+# Generated artifacts
+reports/
+data/
+*.csv
+*.json
+
+# Hopsworks local cache
+.hopsworks-certs/
+.hopsworks-tmp/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
