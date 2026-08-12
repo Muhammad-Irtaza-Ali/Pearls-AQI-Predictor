@@ -1,5 +1,35 @@
 # Pearls-AQI-Predictor
 
+## Project Summary
+
+This project is an end-to-end AQI data engineering pipeline that:
+
+- collects data asynchronously from OpenWeather, Open-Meteo, and AQICN
+- supports historical backfill and current hourly ingestion
+- validates, cleans, standardizes, deduplicates, and fuses records
+- builds Bronze / Silver / Gold layers
+- produces a clean ML-ready Gold dataset
+- stores raw data in Supabase and ML-ready data in Hopsworks
+- generates pipeline, quality, metrics, and drift reports
+
+### Current Progress
+
+- Raw Bronze data: uploaded to Supabase
+- ML-ready Gold data: uploaded to Hopsworks
+- Clean Gold file: `data/gold/ml_ready_records.csv`
+- Canonical merged Gold file: `data/gold/merged_records.csv`
+- Data quality report: `reports/data_quality_report.json`
+- Upload report: `reports/ml_ready_upload_report.json`
+
+### Main Files
+
+- `feature_pipeline/run_pipeline.py` — live pipeline entry point
+- `feature_pipeline/pipeline.py` — async ingestion orchestration
+- `feature_pipeline/preparation/ml_ready_dataset.py` — ML-ready dataset builder
+- `scripts/upload_raw_to_supabase.py` — raw Bronze upload
+- `scripts/upload_ml_ready_dataset.py` — raw to Supabase, ML-ready to Hopsworks
+- `reports/project_status_report.md` — full project status and attachment comparison
+
 ## Run
 
 Current live ingestion:

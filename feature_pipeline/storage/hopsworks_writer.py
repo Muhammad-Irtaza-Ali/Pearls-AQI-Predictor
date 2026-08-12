@@ -15,7 +15,13 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 
-def write_feature_group(records: list[dict[str, Any]], run_id: str) -> bool:
+def _sync_feature_group_records(
+    records: list[dict[str, Any]],
+    *,
+    feature_group: str | None = None,
+    feature_group_version: int | None = None,
+    sync_script_name: str = "hopsworks_sync_job.py",
+) -> bool:
     if not settings.hopsworks_enabled:
         return False
     if not settings.hopsworks_api_key or not settings.hopsworks_project or not settings.hopsworks_host:
@@ -25,7 +31,6 @@ def write_feature_group(records: list[dict[str, Any]], run_id: str) -> bool:
         return False
 
     dataframe = pd.DataFrame(records)
-    dataframe["run_id"] = run_id
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as temp_file:
         json.dump(dataframe.to_dict(orient="records"), temp_file, default=str)
@@ -33,7 +38,7 @@ def write_feature_group(records: list[dict[str, Any]], run_id: str) -> bool:
 
     try:
         if settings.hopsworks_python_exe:
-            sync_script = os.path.join(os.path.dirname(__file__), "hopsworks_sync_job.py")
+            sync_script = os.path.join(os.path.dirname(__file__), sync_script_name)
             command = [
                 settings.hopsworks_python_exe,
                 sync_script,
@@ -41,8 +46,8 @@ def write_feature_group(records: list[dict[str, Any]], run_id: str) -> bool:
                 settings.hopsworks_host,
                 settings.hopsworks_project,
                 settings.hopsworks_api_key,
-                settings.hopsworks_feature_group,
-                str(settings.hopsworks_feature_group_version),
+                feature_group or settings.hopsworks_feature_group,
+                str(feature_group_version or settings.hopsworks_feature_group_version),
             ]
             completed = subprocess.run(command, capture_output=True, text=True)
             if completed.returncode == 0:
@@ -68,3 +73,22 @@ def write_feature_group(records: list[dict[str, Any]], run_id: str) -> bool:
             os.remove(temp_path)
         except OSError:
             pass
+
+
+def write_feature_group(records: list[dict[str, Any]], run_id: str) -> bool:
+    dataframe = pd.DataFrame(records)
+    dataframe["run_id"] = run_id
+    return _sync_feature_group_records(dataframe.to_dict(orient="records"))
+
+
+def write_feature_group_records(records: list[dict[str, Any]]) -> bool:
+    return _sync_feature_group_records(records)
+
+
+def write_ml_ready_feature_group(records: list[dict[str, Any]]) -> bool:
+    return _sync_feature_group_records(
+        records,
+        feature_group=settings.hopsworks_ml_feature_group,
+        feature_group_version=settings.hopsworks_ml_feature_group_version,
+        sync_script_name="hopsworks_ml_ready_sync_job.py",
+    )

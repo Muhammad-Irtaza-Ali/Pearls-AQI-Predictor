@@ -8,7 +8,9 @@ from config import settings
 from reporting.metrics_report import write_metrics_report
 from reporting.quality_report import write_quality_report
 from reporting.report_generator import write_pipeline_report
+from fusion.model_ready import project_model_ready_record
 from storage.hopsworks_writer import write_feature_group
+from storage.run_merger import merge_run_snapshots
 from storage.supabase_writer import write_raw_records
 from storage.snapshots import write_run_snapshot
 from storage.writer import write_records
@@ -38,10 +40,14 @@ def publish_outputs(
     quality_path = write_quality_report(Path(settings.reports_dir) / f"{run_id}_quality.json", summary)
     bronze_snapshot_path = write_run_snapshot(settings.bronze_output_path, run_id, bronze_records)
     silver_snapshot_path = write_run_snapshot(settings.silver_output_path, run_id, silver_records)
-    gold_snapshot_path = write_run_snapshot(settings.gold_output_path, run_id, gold_records)
+    clean_gold_records = [project_model_ready_record(record) for record in gold_records]
+    gold_snapshot_path = write_run_snapshot(settings.gold_output_path, run_id, clean_gold_records)
+    merge_run_snapshots(settings.bronze_output_path)
+    merge_run_snapshots(settings.silver_output_path)
+    merge_run_snapshots(settings.gold_output_path, row_transform=project_model_ready_record)
     write_records(settings.output_path, bronze_records)
     write_raw_records(bronze_records, run_id)
-    write_feature_group(gold_records, run_id)
+    write_feature_group(clean_gold_records, run_id)
     return OutputPaths(
         report_path=report_path,
         metrics_path=metrics_path,

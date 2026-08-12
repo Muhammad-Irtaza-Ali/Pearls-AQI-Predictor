@@ -62,6 +62,8 @@ class Settings:
     supabase_url: str | None
     supabase_service_role_key: str | None
     supabase_raw_table: str
+    supabase_validated_table: str
+    supabase_ml_ready_table: str
     hopsworks_enabled: bool
     hopsworks_project: str | None
     hopsworks_api_key: str | None
@@ -69,6 +71,8 @@ class Settings:
     hopsworks_python_exe: str | None
     hopsworks_feature_group: str
     hopsworks_feature_group_version: int
+    hopsworks_ml_feature_group: str
+    hopsworks_ml_feature_group_version: int
     openmeteo_api_key: str | None
     aqicn_api_key: str | None
     timeout_seconds: float
@@ -93,6 +97,8 @@ settings = Settings(
     supabase_url=os.getenv("SUPABASE_URL"),
     supabase_service_role_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
     supabase_raw_table=os.getenv("SUPABASE_RAW_TABLE", "raw_records"),
+    supabase_validated_table=os.getenv("SUPABASE_VALIDATED_TABLE", "validated_records"),
+    supabase_ml_ready_table=os.getenv("SUPABASE_ML_READY_TABLE", "ml_ready_records"),
     hopsworks_enabled=os.getenv("HOPSWORKS_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"},
     hopsworks_project=os.getenv("HOPSWORKS_PROJECT"),
     hopsworks_api_key=os.getenv("HOPSWORKS_API_KEY"),
@@ -100,6 +106,8 @@ settings = Settings(
     hopsworks_python_exe=os.getenv("HOPSWORKS_PYTHON_EXE"),
     hopsworks_feature_group=os.getenv("HOPSWORKS_FEATURE_GROUP", "daily_aqi_features"),
     hopsworks_feature_group_version=_get_int("HOPSWORKS_FEATURE_GROUP_VERSION", 1),
+    hopsworks_ml_feature_group=os.getenv("HOPSWORKS_ML_FEATURE_GROUP", "aqi_ml_ready_features"),
+    hopsworks_ml_feature_group_version=_get_int("HOPSWORKS_ML_FEATURE_GROUP_VERSION", 1),
     openmeteo_api_key=os.getenv("OPENMETEO_API_KEY"),
     aqicn_api_key=os.getenv("AQICN_API_KEY"),
     timeout_seconds=_get_float("REQUEST_TIMEOUT", 20.0),
@@ -158,4 +166,61 @@ STANDARD_COLUMNS = [
     "response_time_ms",
     "response_time_seconds",
     "raw_payload",
+]
+
+MODEL_READY_GOLD_COLUMNS = [
+    "timestamp",
+    "data_date",
+    "city",
+    "country",
+    "latitude",
+    "longitude",
+    "temperature",
+    "humidity",
+    "pressure",
+    "wind_speed",
+    "wind_direction",
+    "cloud_cover",
+    "rain",
+    "aqi",
+    "pm25",
+    "pm10",
+    "co",
+    "no",
+    "no2",
+    "so2",
+    "o3",
+    "nh3",
+    "source",
+    "status",
+    "run_id",
+    "pipeline_version",
+    "api_version",
+    "retrieved_at",
+    "response_time_ms",
+    "response_time_seconds",
+]
+
+ML_READY_COLUMNS = [
+    "timestamp",
+    "data_date",
+    "city",
+    "latitude",
+    "longitude",
+    "temperature",
+    "humidity",
+    "pressure",
+    "wind_speed",
+    "wind_direction",
+    "cloud_cover",
+    "rain",
+    "pm25",
+    "pm10",
+    "co",
+    "no",
+    "no2",
+    "so2",
+    "o3",
+    "nh3",
+    "aqi",
 ]

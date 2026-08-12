@@ -14,8 +14,11 @@ if str(FEATURE_PIPELINE_DIR) not in sys.path:
     sys.path.insert(0, str(FEATURE_PIPELINE_DIR))
 
 from monitoring.logger import configure_logging  # noqa: E402
+from config import settings  # noqa: E402
 from pipeline import AsyncIngestionPipeline  # noqa: E402
 from reporting.output_writer import publish_outputs  # noqa: E402
+from storage.writer import write_records  # noqa: E402
+from storage.snapshots import write_run_snapshot  # noqa: E402
 
 
 def _parse_date(value: str) -> date:
@@ -40,8 +43,30 @@ def main(argv: list[str] | None = None) -> int:
     logger = logging.getLogger("backfill")
     logger.info("Backfill Started | start_date=%s | end_date=%s", args.start_date, args.end_date)
 
+    pipeline = AsyncIngestionPipeline()
+
+    def _flush_progress(run_id: str, collected_results: list, bronze_records: list[dict]) -> None:
+        source_records = [
+            record
+            for record in (result.record for result in collected_results if getattr(result, "record", None) is not None)
+            if record is not None
+        ]
+        silver_records, gold_records, _, _, _ = pipeline._materialize_records(source_records, run_id)
+        write_records(settings.output_path, bronze_records)
+        write_records(settings.silver_output_path, silver_records)
+        write_records(settings.gold_output_path, gold_records)
+        write_run_snapshot(settings.bronze_output_path, run_id, bronze_records)
+        write_run_snapshot(settings.silver_output_path, run_id, silver_records)
+        write_run_snapshot(settings.gold_output_path, run_id, gold_records)
+
     started_at = time.perf_counter()
-    artifacts = asyncio.run(AsyncIngestionPipeline().run(start_date=args.start_date, end_date=args.end_date))
+    artifacts = asyncio.run(
+        pipeline.run(
+            start_date=args.start_date,
+            end_date=args.end_date,
+            progress_callback=_flush_progress,
+        )
+    )
     outputs = publish_outputs(
         run_id=artifacts.summary.run_id,
         bronze_records=artifacts.bronze_records,
@@ -69,4 +94,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

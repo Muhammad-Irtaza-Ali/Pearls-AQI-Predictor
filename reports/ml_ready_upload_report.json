@@ -1,0 +1,14 @@
+{
+  "raw_dataset_path": "C:\\Users\\muham\\Desktop\\PEARLS inTERNSHI pROJECY\\Pearls-AQI-Predictor\\data\\bronze\\raw_records.csv",
+  "ml_ready_dataset_path": "C:\\Users\\muham\\Desktop\\PEARLS inTERNSHI pROJECY\\Pearls-AQI-Predictor\\data\\gold\\ml_ready_records.csv",
+  "raw_rows": 68789,
+  "ml_ready_rows": 9219,
+  "supabase": {
+    "inserted_rows": 68789,
+    "skipped": false,
+    "message": null
+  },
+  "hopsworks": {
+    "uploaded": false
+  }
+}

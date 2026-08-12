@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha1
 import json
 import logging
+import math
 from typing import Any
 
 import httpx
@@ -25,6 +26,18 @@ def _row_key(record: dict[str, Any]) -> str:
     return sha1(normalized.encode("utf-8")).hexdigest()
 
 
+def _json_safe(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, float) and math.isnan(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 def _build_headers() -> dict[str, str]:
     return {
         "apikey": settings.supabase_service_role_key or "",
@@ -34,16 +47,16 @@ def _build_headers() -> dict[str, str]:
     }
 
 
-def _build_rows(records: list[dict[str, Any]], run_id: str) -> list[dict[str, Any]]:
+def _build_rows(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for record in records:
-        row = dict(record)
-        row["record_key"] = _row_key({**row, "run_id": run_id})
+        row = _json_safe(dict(record))
+        row["record_key"] = _row_key(row)
         rows.append(row)
     return rows
 
 
-def write_raw_records(records: list[dict[str, Any]], run_id: str) -> SupabaseWriteResult:
+def _write_table_records(records: list[dict[str, Any]], table_name: str) -> SupabaseWriteResult:
     if not settings.supabase_enabled:
         return SupabaseWriteResult(inserted_rows=0, skipped=True, message="Supabase disabled")
     if not settings.supabase_url or not settings.supabase_service_role_key:
@@ -51,15 +64,29 @@ def write_raw_records(records: list[dict[str, Any]], run_id: str) -> SupabaseWri
     if not records:
         return SupabaseWriteResult(inserted_rows=0, skipped=True, message="No records to write")
 
-    url = f"{settings.supabase_url.rstrip('/')}/rest/v1/{settings.supabase_raw_table}"
-    rows = _build_rows(records, run_id)
+    url = f"{settings.supabase_url.rstrip('/')}/rest/v1/{table_name}"
+    rows = _build_rows(records)
     try:
         with httpx.Client(timeout=30.0) as client:
-            response = client.post(url, headers=_build_headers(), params={"on_conflict": "record_key"}, json=rows)
-            response.raise_for_status()
-        logger.info("Supabase raw sync complete | table=%s | rows=%s", settings.supabase_raw_table, len(rows))
+            batch_size = 500
+            for start_index in range(0, len(rows), batch_size):
+                batch = rows[start_index : start_index + batch_size]
+                response = client.post(url, headers=_build_headers(), params={"on_conflict": "record_key"}, json=batch)
+                response.raise_for_status()
+        logger.info("Supabase sync complete | table=%s | rows=%s", table_name, len(rows))
         return SupabaseWriteResult(inserted_rows=len(rows), skipped=False)
     except Exception as exc:
-        logger.warning("Supabase raw sync failed: %s", exc)
+        logger.warning("Supabase sync failed for %s: %s", table_name, exc)
         return SupabaseWriteResult(inserted_rows=0, skipped=True, message=str(exc))
 
+
+def write_raw_records(records: list[dict[str, Any]], run_id: str | None = None) -> SupabaseWriteResult:
+    return _write_table_records(records, settings.supabase_raw_table)
+
+
+def write_validated_records(records: list[dict[str, Any]], run_id: str | None = None) -> SupabaseWriteResult:
+    return _write_table_records(records, settings.supabase_validated_table)
+
+
+def write_ml_ready_records(records: list[dict[str, Any]], run_id: str | None = None) -> SupabaseWriteResult:
+    return _write_table_records(records, settings.supabase_ml_ready_table)

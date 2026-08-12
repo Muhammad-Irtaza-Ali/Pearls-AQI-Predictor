@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, datetime
-from typing import Any
 
 from validation.schema import AirQualityRecord
+from fusion.model_ready import project_model_ready_record
 
 
 def _record_date(record: AirQualityRecord) -> date:
@@ -21,19 +21,9 @@ def merge_records(records: list[AirQualityRecord]) -> list[AirQualityRecord]:
     merged: list[AirQualityRecord] = []
     for (city, record_date), group in grouped.items():
         chosen = group[0]
-        payload = chosen.model_dump()
-        payload["source"] = "merged"
-        payload["endpoint"] = "merged"
-        payload["status"] = "merged"
+        payload = project_model_ready_record(chosen, source="merged", status="merged")
         payload["data_date"] = record_date
-        payload["lineage"] = {
-            "source_api": "merged",
-            "city": city,
-            "data_date": record_date.isoformat(),
-            "source_apis": [item.source for item in group],
-            "source_endpoints": [item.endpoint for item in group],
-            "source_records": [item.model_dump(mode="json") for item in group],
-        }
+        payload["source"] = "merged"
+        payload["status"] = "merged"
         merged.append(AirQualityRecord.model_validate(payload))
     return merged
-

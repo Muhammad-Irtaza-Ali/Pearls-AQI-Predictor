@@ -142,6 +142,14 @@ class BaseClient(ABC):
                 last_error = exc
                 if attempt < settings.retry_count:
                     wait_for = settings.retry_backoff_seconds * (2**attempt)
+                    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+                        retry_after = exc.response.headers.get("Retry-After")
+                        if retry_after:
+                            try:
+                                wait_for = max(wait_for, float(retry_after))
+                            except ValueError:
+                                pass
+                        wait_for = max(wait_for, settings.retry_backoff_seconds * (attempt + 2))
                     await asyncio.sleep(wait_for)
                     continue
                 logger.warning("Request failed for %s after %s attempts: %s", url, attempt + 1, exc)

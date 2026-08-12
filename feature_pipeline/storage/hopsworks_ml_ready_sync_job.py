@@ -13,24 +13,13 @@ FEATURE_PIPELINE_DIR = CURRENT_DIR.parent
 if str(FEATURE_PIPELINE_DIR) not in sys.path:
     sys.path.insert(0, str(FEATURE_PIPELINE_DIR))
 
-from config import MODEL_READY_GOLD_COLUMNS
+from config import ML_READY_COLUMNS
 
-logger = logging.getLogger("hopsworks_sync")
+logger = logging.getLogger("hopsworks_ml_ready_sync")
 
-FEATURE_GROUP_COLUMNS = list(MODEL_READY_GOLD_COLUMNS)
+FEATURE_GROUP_COLUMNS = list(ML_READY_COLUMNS)
 
-DATETIME_COLUMNS = ["timestamp", "data_date", "retrieved_at"]
-
-TEXT_COLUMNS = [
-    "city",
-    "country",
-    "source",
-    "status",
-    "run_id",
-    "pipeline_version",
-    "api_version",
-]
-
+DATETIME_COLUMNS = ["timestamp", "data_date"]
 FLOAT_COLUMNS = [
     "latitude",
     "longitude",
@@ -41,7 +30,6 @@ FLOAT_COLUMNS = [
     "wind_direction",
     "cloud_cover",
     "rain",
-    "aqi",
     "pm25",
     "pm10",
     "co",
@@ -50,9 +38,9 @@ FLOAT_COLUMNS = [
     "so2",
     "o3",
     "nh3",
-    "response_time_ms",
-    "response_time_seconds",
+    "aqi",
 ]
+TEXT_COLUMNS = ["city"]
 
 
 def _configure_logging() -> None:
@@ -133,13 +121,10 @@ def _prepare_dataframe(dataframe: pd.DataFrame) -> pd.DataFrame:
     for column in TEXT_COLUMNS:
         if column in feature_dataframe.columns:
             feature_dataframe[column] = feature_dataframe[column].map(
-                lambda value: None
-                if pd.isna(value)
-                else value
-                if isinstance(value, str)
-                else str(value)
+                lambda value: None if pd.isna(value) else value if isinstance(value, str) else str(value)
             )
 
+    feature_dataframe = feature_dataframe.dropna(subset=["timestamp", "data_date", "city", "aqi"]).copy()
     return feature_dataframe
 
 
@@ -156,9 +141,9 @@ def _sync_feature_group(
         version=group_version,
         primary_key=["city", "data_date"],
         event_time="timestamp",
-        description="Model-ready AQI features",
+        description="ML-ready AQI features",
         time_travel_format="HUDI",
-        hudi_precombine_key="retrieved_at",
+        hudi_precombine_key="timestamp",
     )
     feature_group.insert(dataframe, write_options={"wait_for_job": True})
     return group_version
@@ -168,7 +153,7 @@ def main(argv: list[str] | None = None) -> int:
     _configure_logging()
     args = argv or sys.argv[1:]
     if len(args) < 6:
-        logger.error("Usage: hopsworks_sync_job.py <records_json> <host> <project> <api_key> <group> <version>")
+        logger.error("Usage: hopsworks_ml_ready_sync_job.py <records_json> <host> <project> <api_key> <group> <version>")
         return 2
 
     records_path = Path(args[0])
@@ -193,6 +178,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     dataframe = _prepare_dataframe(dataframe)
+    if dataframe.empty:
+        logger.info("No usable ML-ready records to sync")
+        return 0
 
     project_handle = hopsworks.login(
         host=host,

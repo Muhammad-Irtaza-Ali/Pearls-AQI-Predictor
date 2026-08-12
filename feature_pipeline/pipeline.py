@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 import logging
 import time
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -15,6 +15,7 @@ from base_client import BaseClient, FetchResult
 from cities import City, get_cities
 from config import API_VERSIONS, PIPELINE_VERSION, settings
 from fusion.merge_data import merge_records
+from fusion.model_ready import project_model_ready_record
 from monitoring.logger import log_api_event
 from standardization.standardizer import standardize_records
 from utils.run_id import generate_run_id
@@ -106,7 +107,13 @@ class AsyncIngestionPipeline:
         bronze_records = [self._result_to_bronze_record(result, run_id, None) for result in normalized_results]
         return normalized_results, bronze_records
 
-    async def _collect_historical(self, run_id: str, start_date: date, end_date: date) -> tuple[list[FetchResult], list[dict[str, Any]]]:
+    async def _collect_historical(
+        self,
+        run_id: str,
+        start_date: date,
+        end_date: date,
+        progress_callback: Callable[[str, list[FetchResult], list[dict[str, Any]]], None] | None = None,
+    ) -> tuple[list[FetchResult], list[dict[str, Any]]]:
         selected_clients = [client for client in self.clients if getattr(client, "supports_historical", False)]
         skipped_clients = [client.source_name for client in self.clients if client not in selected_clients]
         for skipped_client in skipped_clients:
@@ -124,15 +131,21 @@ class AsyncIngestionPipeline:
         async with httpx.AsyncClient(timeout=timeout, limits=limits) as http_client:
             for index, current_day in enumerate(dates, start=1):
                 logger.info("Historical collection progress %s/%s | date=%s", index, total_days, current_day)
-                tasks = [
-                    client.fetch(http_client, city, start_date=current_day, end_date=current_day)
-                    for city in self.cities
-                    for client in selected_clients
-                ]
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                normalized_results = self._normalize_results(results)
-                collected_results.extend(normalized_results)
-                bronze_records.extend(self._result_to_bronze_record(result, run_id, current_day) for result in normalized_results)
+                for city in self.cities:
+                    city_results = await asyncio.gather(
+                        *[
+                            client.fetch(http_client, city, start_date=current_day, end_date=current_day)
+                            for client in selected_clients
+                        ],
+                        return_exceptions=True,
+                    )
+                    normalized_results = self._normalize_results(city_results)
+                    collected_results.extend(normalized_results)
+                    bronze_records.extend(
+                        self._result_to_bronze_record(result, run_id, current_day) for result in normalized_results
+                    )
+                if progress_callback is not None:
+                    progress_callback(run_id, list(collected_results), list(bronze_records))
         return collected_results, bronze_records
 
     @staticmethod
@@ -168,7 +181,32 @@ class AsyncIngestionPipeline:
                     missing_values[field_name] += 1
         return dict(missing_values)
 
-    async def run(self, *, start_date: date | None = None, end_date: date | None = None) -> PipelineArtifacts:
+    @staticmethod
+    def _materialize_records(
+        source_records: list[dict[str, Any]],
+        run_id: str,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], dict[str, int], dict[str, str]]:
+        deduplicated_records = deduplicate_records(source_records)
+        standardized_records = standardize_records(deduplicated_records, run_id)
+        silver_records = [record.model_dump(mode="json") for record in standardized_records]
+        gold_models = merge_records(standardized_records)
+        gold_records = [project_model_ready_record(record) for record in gold_models]
+        invalid_records = len(deduplicated_records) - len(standardized_records)
+        duplicates_removed = len(source_records) - len(deduplicated_records)
+        missing_values = AsyncIngestionPipeline._missing_values(gold_models)
+        quality_snapshot = {
+            "invalid_records": invalid_records,
+            "duplicates_removed": duplicates_removed,
+        }
+        return silver_records, gold_records, gold_models, missing_values, quality_snapshot
+
+    async def run(
+        self,
+        *,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        progress_callback: Callable[[str, list[FetchResult], list[dict[str, Any]]], None] | None = None,
+    ) -> PipelineArtifacts:
         run_id = generate_run_id()
         started_at = time.perf_counter()
         logger.info("Pipeline Started | run_id=%s", run_id)
@@ -178,24 +216,23 @@ class AsyncIngestionPipeline:
                 raise ValueError("Both start_date and end_date are required for historical runs.")
             if start_date > end_date:
                 raise ValueError("start_date must be earlier than or equal to end_date.")
-            collected_results, bronze_records = await self._collect_historical(run_id, start_date, end_date)
+            collected_results, bronze_records = await self._collect_historical(
+                run_id,
+                start_date,
+                end_date,
+                progress_callback=progress_callback,
+            )
         else:
             collected_results, bronze_records = await self._collect_current(run_id)
 
         source_records = [record for record in (result.record for result in collected_results if result.record is not None) if record is not None]
-        deduplicated_records = deduplicate_records(source_records)
-        standardized_records = standardize_records(deduplicated_records, run_id)
-        silver_records = [record.model_dump(mode="json") for record in standardized_records]
-        gold_models = merge_records(standardized_records)
-        gold_records = [record.model_dump(mode="json") for record in gold_models]
-
-        invalid_records = len(deduplicated_records) - len(standardized_records)
-        duplicates_removed = len(source_records) - len(deduplicated_records)
-        rows_processed = len(standardized_records)
-        rows_skipped = max(0, len(source_records) - len(standardized_records))
+        silver_records, gold_records, gold_models, missing_values, quality_snapshot = self._materialize_records(source_records, run_id)
+        invalid_records = quality_snapshot["invalid_records"]
+        duplicates_removed = quality_snapshot["duplicates_removed"]
+        rows_processed = len(silver_records)
+        rows_skipped = max(0, len(source_records) - len(silver_records))
         failed_requests = self._build_failed_requests(collected_results)
         api_summary = self._build_api_summary(collected_results)
-        missing_values = self._missing_values(gold_models)
         execution_time_seconds = time.perf_counter() - started_at
 
         summary = PipelineSummary(
@@ -229,4 +266,3 @@ class AsyncIngestionPipeline:
         )
 
         return PipelineArtifacts(bronze_records=bronze_records, silver_records=silver_records, gold_records=gold_records, summary=summary)
-

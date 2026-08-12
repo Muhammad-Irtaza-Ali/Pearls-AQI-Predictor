@@ -36,7 +36,4 @@ HOPSWORKS_FEATURE_COLUMNS = [
     "retrieved_at",
     "response_time_ms",
     "response_time_seconds",
-    "lineage",
-    "raw_payload",
 ]
-
