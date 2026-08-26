@@ -23,12 +23,18 @@ This project is an end-to-end AQI data engineering pipeline that:
 
 ### Main Files
 
-- `feature_pipeline/run_pipeline.py` — live pipeline entry point
-- `feature_pipeline/pipeline.py` — async ingestion orchestration
-- `feature_pipeline/preparation/ml_ready_dataset.py` — ML-ready dataset builder
-- `scripts/upload_raw_to_supabase.py` — raw Bronze upload
-- `scripts/upload_ml_ready_dataset.py` — raw to Supabase, ML-ready to Hopsworks
-- `reports/project_status_report.md` — full project status and attachment comparison
+- `feature_pipeline/run_pipeline.py` - live pipeline entry point
+- `feature_pipeline/pipeline.py` - async ingestion orchestration
+- `feature_pipeline/preparation/ml_ready_dataset.py` - ML-ready dataset builder
+- `feature_pipeline/modeling/trainer.py` - trains the three AQI regression models
+- `feature_pipeline/api/main.py` - AQI prediction API
+- `streamlit_app.py` - Streamlit GUI dashboard
+- `scripts/upload_raw_to_supabase.py` - raw Bronze upload
+- `scripts/upload_ml_ready_dataset.py` - raw to Supabase, ML-ready to Hopsworks
+- `scripts/predict_aqi.py` - inference CLI
+- `scripts/run_model_api.py` - start the prediction API
+- `.github/workflows/ci.yml` - basic GitHub Actions validation
+- `reports/project_status_report.md` - full project status and attachment comparison
 
 ## Run
 
@@ -48,6 +54,24 @@ Historical backfill:
 
 ```powershell
 python feature_pipeline\backfill\backfill.py --start-date 2023-01-01 --end-date 2023-01-01
+```
+
+Train three ML models from the Hopsworks ML-ready dataset:
+
+```powershell
+python scripts\train_models.py --source hopsworks
+```
+
+Run the prediction API:
+
+```powershell
+& .\.venv-hopsworks\Scripts\python.exe scripts\run_model_api.py
+```
+
+Run the Streamlit GUI:
+
+```powershell
+& ..\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
 ```
 
 ## Supabase and Hopsworks
