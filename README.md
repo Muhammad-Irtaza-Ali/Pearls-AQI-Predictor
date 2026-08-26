@@ -74,6 +74,32 @@ Run the Streamlit GUI:
 & ..\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
 ```
 
+## Deployment
+
+This repository is set up for deployment on Render via `render.yaml`.
+
+### Render
+
+1. Push the repo to GitHub.
+2. Connect the repo to Render.
+3. Render will read `render.yaml` and run:
+
+```bash
+streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port $PORT
+```
+
+### Notes
+
+- The Streamlit app is designed to run even when local CSV snapshots are missing.
+- Prediction pages will show a warning if the trained model artifacts are not available in the deployed environment.
+- If you want the deployed app to use the latest ML-ready data and model artifacts, sync them before deployment or store them in your external data services.
+
+## CI / CD
+
+- GitHub Actions CI: `.github/workflows/ci.yml`
+- Render auto-deploy config: `render.yaml`
+- The CI workflow checks imports and compile-time health on every push and pull request.
+
 ## Supabase and Hopsworks
 
 Set these in `.env` to sync raw and model-ready data:

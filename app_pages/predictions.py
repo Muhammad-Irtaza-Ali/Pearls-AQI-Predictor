@@ -35,6 +35,12 @@ selected_model = st.selectbox(
 )
 st.session_state["selected_model"] = selected_model
 
+if not available_model_names:
+    st.warning(
+        "No trained model artifacts are available in this environment yet. "
+        "The app can still run, but predictions will need the model files to be synced."
+    )
+
 with st.container(border=True):
     render_section_title("Single prediction", "Enter city and weather conditions to estimate AQI.")
     with st.form("prediction_form", border=False):
@@ -103,26 +109,34 @@ with st.container(border=True):
                 if pd.notna(current_row.get("aqi")):
                     current_aqi = float(current_row.get("aqi"))
 
-        result = predict_single(record, model_name=selected_model)
-        left, right = st.columns(2)
-        with left:
-            st.metric("Predicted AQI", f"{result.prediction:.2f}", border=True)
-        with right:
-            st.metric("Model used", result.model_name, border=True)
-        if current_aqi is not None:
-            comparison_col1, comparison_col2 = st.columns(2)
-            with comparison_col1:
-                st.metric("Current AQI", f"{current_aqi:.2f}", border=True)
-            with comparison_col2:
-                st.metric("Current category", aqi_category(current_aqi), border=True)
-        st.markdown("**Input payload**")
-        st.json(result.input_row)
+        try:
+            result = predict_single(record, model_name=selected_model)
+        except Exception as exc:
+            st.error(f"Prediction is unavailable right now: {exc}")
+        else:
+            left, right = st.columns(2)
+            with left:
+                st.metric("Predicted AQI", f"{result.prediction:.2f}", border=True)
+            with right:
+                st.metric("Model used", result.model_name, border=True)
+            if current_aqi is not None:
+                comparison_col1, comparison_col2 = st.columns(2)
+                with comparison_col1:
+                    st.metric("Current AQI", f"{current_aqi:.2f}", border=True)
+                with comparison_col2:
+                    st.metric("Current category", aqi_category(current_aqi), border=True)
+            st.markdown("**Input payload**")
+            st.json(result.input_row)
 
 with st.container(border=True):
     render_section_title("Batch prediction", "Upload a CSV of feature rows for bulk inference.")
     uploaded = st.file_uploader("Upload a CSV with model features", type=["csv"])
     if uploaded is not None:
         batch_frame = pd.read_csv(uploaded)
-        predicted = predict_dataframe(batch_frame, model_name=selected_model)
-        st.dataframe(predicted.head(200), hide_index=True, width="stretch")
-        st.download_button("Download predictions", predicted.to_csv(index=False).encode("utf-8"), file_name="predictions.csv")
+        try:
+            predicted = predict_dataframe(batch_frame, model_name=selected_model)
+        except Exception as exc:
+            st.error(f"Batch prediction is unavailable right now: {exc}")
+        else:
+            st.dataframe(predicted.head(200), hide_index=True, width="stretch")
+            st.download_button("Download predictions", predicted.to_csv(index=False).encode("utf-8"), file_name="predictions.csv")
