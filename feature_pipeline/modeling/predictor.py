@@ -8,7 +8,7 @@ from typing import Any
 import joblib
 import pandas as pd
 
-from modeling.registry import resolve_registered_model
+from .registry import resolve_registered_model
 
 
 TRAINING_FEATURE_COLUMNS = [

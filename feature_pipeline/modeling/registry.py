@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from modeling.trainer import TrainedModelResult, TrainingReport
+    from .trainer import TrainedModelResult, TrainingReport
 
 logger = logging.getLogger("model_registry")
 

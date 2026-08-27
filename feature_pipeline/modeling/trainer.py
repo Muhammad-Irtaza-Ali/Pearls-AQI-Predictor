@@ -19,8 +19,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from config import settings
-from modeling.data_loader import TrainingDataSource, load_training_dataframe
-from modeling.registry import register_training_run
+from .data_loader import TrainingDataSource, load_training_dataframe
+from .registry import register_training_run
 
 logger = logging.getLogger("model_trainer")
 

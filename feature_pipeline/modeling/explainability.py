@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import Ridge
 
-from modeling.predictor import TRAINING_FEATURE_COLUMNS, _coerce_frame, load_model
+from .predictor import TRAINING_FEATURE_COLUMNS, _coerce_frame, load_model
 
 logger = logging.getLogger("model_explainability")
 

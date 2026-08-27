@@ -9,11 +9,10 @@ import sys
 import pandas as pd
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-FEATURE_PIPELINE_DIR = ROOT_DIR / "feature_pipeline"
-if str(FEATURE_PIPELINE_DIR) not in sys.path:
-    sys.path.insert(0, str(FEATURE_PIPELINE_DIR))
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
-from modeling.predictor import predict_dataframe, predict_single  # noqa: E402
+from feature_pipeline.modeling.predictor import predict_dataframe, predict_single  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
