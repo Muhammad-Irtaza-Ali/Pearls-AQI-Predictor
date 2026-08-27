@@ -1,0 +1,55 @@
+name: Hourly ingestion
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+
+    env:
+      OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+      OPENWEATHER_LOCATION_IDS: ${{ secrets.OPENWEATHER_LOCATION_IDS }}
+      AQICN_API_KEY: ${{ secrets.AQICN_API_KEY }}
+      OPENMETEO_API_KEY: ${{ secrets.OPENMETEO_API_KEY }}
+      SUPABASE_ENABLED: ${{ secrets.SUPABASE_ENABLED }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_RAW_TABLE: ${{ secrets.SUPABASE_RAW_TABLE }}
+      HOPSWORKS_ENABLED: ${{ secrets.HOPSWORKS_ENABLED }}
+      HOPSWORKS_PROJECT: ${{ secrets.HOPSWORKS_PROJECT }}
+      HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+      HOPSWORKS_HOST: ${{ secrets.HOPSWORKS_HOST }}
+      HOPSWORKS_PYTHON_EXE: ${{ secrets.HOPSWORKS_PYTHON_EXE }}
+      HOPSWORKS_FEATURE_GROUP: ${{ secrets.HOPSWORKS_FEATURE_GROUP }}
+      HOPSWORKS_FEATURE_GROUP_VERSION: ${{ secrets.HOPSWORKS_FEATURE_GROUP_VERSION }}
+      HOPSWORKS_ML_FEATURE_GROUP: ${{ secrets.HOPSWORKS_ML_FEATURE_GROUP }}
+      HOPSWORKS_ML_FEATURE_GROUP_VERSION: ${{ secrets.HOPSWORKS_ML_FEATURE_GROUP_VERSION }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+
+      - name: Run ingestion pipeline
+        run: python feature_pipeline/run_pipeline.py
+
+      - name: Upload pipeline artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingestion-artifacts
+          path: |
+            data/
+            reports/
+            logs/
+          retention-days: 7

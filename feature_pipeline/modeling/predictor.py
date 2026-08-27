@@ -8,6 +8,8 @@ from typing import Any
 import joblib
 import pandas as pd
 
+from modeling.registry import resolve_registered_model
+
 
 TRAINING_FEATURE_COLUMNS = [
     "latitude",
@@ -46,10 +48,10 @@ def load_best_model(model_dir: str | Path = Path("models") / "latest") -> tuple[
     return load_model(model_dir=model_dir)
 
 
-def load_model(
-    model_name: str | None = None,
+def _load_from_manifest(
     *,
-    model_dir: str | Path = Path("models") / "latest",
+    model_name: str | None,
+    model_dir: str | Path,
 ) -> tuple[str, Any]:
     base_dir = Path(model_dir)
     manifest_path = base_dir / "manifest.json"
@@ -74,6 +76,20 @@ def load_model(
 
     model = joblib.load(artifact_path)
     return selected_model_name, model
+
+
+def load_model(
+    model_name: str | None = None,
+    *,
+    model_dir: str | Path = Path("models") / "latest",
+) -> tuple[str, Any]:
+    registered_model = resolve_registered_model(model_name)
+    if registered_model:
+        artifact_path = Path(str(registered_model.get("artifact_path", "")))
+        if artifact_path.exists():
+            return str(registered_model.get("model_name")), joblib.load(artifact_path)
+
+    return _load_from_manifest(model_name=model_name, model_dir=model_dir)
 
 
 def _coerce_frame(dataframe: pd.DataFrame) -> pd.DataFrame:

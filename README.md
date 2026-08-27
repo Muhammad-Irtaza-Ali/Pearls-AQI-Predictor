@@ -29,6 +29,7 @@ This project is an end-to-end AQI data engineering pipeline that:
 - `feature_pipeline/modeling/trainer.py` - trains the three AQI regression models
 - `feature_pipeline/api/main.py` - AQI prediction API
 - `streamlit_app.py` - Streamlit GUI dashboard
+- `app_pages/explainability.py` - local explanation page for AQI forecasts
 - `scripts/upload_raw_to_supabase.py` - raw Bronze upload
 - `scripts/upload_ml_ready_dataset.py` - raw to Supabase, ML-ready to Hopsworks
 - `scripts/predict_aqi.py` - inference CLI
@@ -97,8 +98,78 @@ streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port $PORT
 ## CI / CD
 
 - GitHub Actions CI: `.github/workflows/ci.yml`
+- Hourly ingestion automation: `.github/workflows/ingestion.yml`
+- Daily training automation: `.github/workflows/training.yml`
+- Manual historical backfill: `.github/workflows/backfill.yml`
 - Render auto-deploy config: `render.yaml`
 - The CI workflow checks imports and compile-time health on every push and pull request.
+
+### GitHub Secrets
+
+Configure these in the repository settings before enabling scheduled workflows:
+
+- `OPENWEATHER_API_KEY`
+- `OPENWEATHER_LOCATION_IDS`
+- `AQICN_API_KEY`
+- `OPENMETEO_API_KEY` if you use it
+- `SUPABASE_ENABLED`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_RAW_TABLE`
+- `HOPSWORKS_ENABLED`
+- `HOPSWORKS_PROJECT`
+- `HOPSWORKS_API_KEY`
+- `HOPSWORKS_HOST`
+- `HOPSWORKS_PYTHON_EXE` if you are using the Hopsworks Python helper
+- `HOPSWORKS_FEATURE_GROUP`
+- `HOPSWORKS_FEATURE_GROUP_VERSION`
+- `HOPSWORKS_ML_FEATURE_GROUP`
+- `HOPSWORKS_ML_FEATURE_GROUP_VERSION`
+
+### Automation behavior
+
+- Hourly ingestion runs `feature_pipeline/run_pipeline.py`.
+- Daily training runs `scripts/train_models.py --source auto` and then regenerates the evaluation summary.
+- Manual backfill runs `feature_pipeline/backfill/backfill.py` for the selected date range.
+- If Hopsworks is not configured, the pipeline falls back to local CSV output where possible.
+- Training expects either the Hopsworks feature store to be available or a local `data/gold/ml_ready_records.csv` file to exist.
+- The scheduled jobs upload run artifacts to GitHub Actions so you can inspect logs and outputs after each run.
+
+## Model Registry
+
+The project now maintains a local file-based model registry under `models/registry/`.
+
+### What it stores
+
+- model name
+- model version
+- run ID
+- artifact path
+- artifact hash
+- RMSE / MAE / R2
+- training timestamps
+- feature version information
+- approved current model pointer
+
+### Inspect it
+
+```powershell
+python scripts\model_registry.py
+```
+
+### How it works
+
+- Every training run is recorded in the registry.
+- The best model from the latest run becomes the approved current model if it is registered.
+- Prediction loading prefers the registry first, then falls back to the local manifest if needed.
+
+## Explainability
+
+The project includes SHAP-based explainability for individual AQI predictions, with a local LIME-style fallback when SHAP is unavailable.
+
+- `app_pages/explainability.py` shows local and global feature importance
+- `app_pages/predictions.py` shows a prediction explanation inline after forecasting
+- Install `shap` to enable the primary explanation path
 
 ## Supabase and Hopsworks
 

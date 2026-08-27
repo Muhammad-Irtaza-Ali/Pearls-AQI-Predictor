@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime, time, timezone
 
 import pandas as pd
@@ -7,6 +8,7 @@ import streamlit as st
 
 from gui.components import render_page_header, render_section_title
 from feature_pipeline.modeling.predictor import predict_dataframe, predict_single
+from feature_pipeline.modeling.explainability import explain_prediction
 from gui.services import aqi_category, available_models, best_model_name, city_options, load_dataset
 
 
@@ -127,6 +129,46 @@ with st.container(border=True):
                     st.metric("Current category", aqi_category(current_aqi), border=True)
             st.markdown("**Input payload**")
             st.json(result.input_row)
+
+            with st.expander("Why this prediction?"):
+                try:
+                    explanation = explain_prediction(record, model_name=selected_model, reference_frame=frame)
+                except Exception as exc:
+                    st.warning(f"Explainability is unavailable right now: {exc}")
+                else:
+                    st.caption(explanation.method)
+                    explain_col1, explain_col2 = st.columns(2)
+                    with explain_col1:
+                        st.metric("Prediction", f"{explanation.prediction:.2f}", border=True)
+                    with explain_col2:
+                        st.metric("Baseline", f"{explanation.baseline_prediction:.2f}", border=True)
+
+                    local_df = pd.DataFrame([asdict(item) for item in explanation.local_contributions])
+                    if not local_df.empty:
+                        st.markdown("**Top local contributions**")
+                        st.dataframe(
+                            local_df[["feature", "transformed_feature", "contribution", "value"]],
+                            hide_index=True,
+                            width="stretch",
+                            column_config={
+                                "transformed_feature": st.column_config.TextColumn("Model feature"),
+                                "contribution": st.column_config.NumberColumn("Contribution", format="%.2f"),
+                                "value": st.column_config.NumberColumn("Model-space value", format="%.2f"),
+                            },
+                        )
+                        st.bar_chart(local_df.set_index("feature")["contribution"], width="stretch", height=280)
+
+                    global_df = pd.DataFrame([asdict(item) for item in explanation.global_importance])
+                    if not global_df.empty:
+                        st.markdown("**Global feature importance**")
+                        st.dataframe(
+                            global_df,
+                            hide_index=True,
+                            width="stretch",
+                            column_config={
+                                "importance": st.column_config.NumberColumn("Importance", format="%.4f"),
+                            },
+                        )
 
 with st.container(border=True):
     render_section_title("Batch prediction", "Upload a CSV of feature rows for bulk inference.")
