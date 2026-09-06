@@ -9,7 +9,7 @@ import requests
 
 API_BASE_URL = os.getenv(
     "API_BASE_URL",
-    "https://pearls-aqi-predictor.onrender.com",
+    "https://pearls-aqi-backend-production.up.railway.app",
 ).rstrip("/")
 
 
