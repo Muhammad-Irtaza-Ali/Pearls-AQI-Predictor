@@ -1,208 +1,267 @@
-# Pearls-AQI-Predictor
+# 10 Pearls AQI Predictor
 
-## Project Summary
+An end-to-end data science project for collecting, preparing, monitoring, and predicting Air Quality Index (AQI) values across multiple cities.
 
-This project is an end-to-end AQI data engineering pipeline that:
+## Project Links
 
-- collects data asynchronously from OpenWeather, Open-Meteo, and AQICN
-- supports historical backfill and current hourly ingestion
-- validates, cleans, standardizes, deduplicates, and fuses records
-- builds Bronze / Silver / Gold layers
-- produces a clean ML-ready Gold dataset
-- stores raw data in Supabase and ML-ready data in Hopsworks
-- generates pipeline, quality, metrics, and drift reports
+- **Live Streamlit dashboard:** [10 Pearls AQI Predictor](https://10pearls-aqi-predictorr.streamlit.app/)
+- **Live FastAPI backend:** [Pearls AQI Backend](https://pearls-aqi-backend-production.up.railway.app/)
+- **API documentation:** [FastAPI Swagger UI](https://pearls-aqi-backend-production.up.railway.app/docs)
+- **Project description:** [Google Drive project brief](https://drive.google.com/file/d/1HPf17hvqI6icNTjRPkPuydkV1ub_lO5/view?usp=sharing)
 
-### Current Progress
+## Project Overview
 
-- Raw Bronze data: uploaded to Supabase
-- ML-ready Gold data: uploaded to Hopsworks
-- Clean Gold file: `data/gold/ml_ready_records.csv`
-- Canonical merged Gold file: `data/gold/merged_records.csv`
-- Data quality report: `reports/data_quality_report.json`
-- Upload report: `reports/ml_ready_upload_report.json`
+The project collects weather and air-pollution observations, validates and standardizes them, prepares machine-learning features, stores the data in external services, trains regression models, and serves predictions through a public API and dashboard.
 
-### Main Files
+The system is designed as a serverless-style stack. GitHub Actions handles scheduled automation, Supabase stores operational data, Hopsworks stores ML-ready features, Railway hosts the FastAPI backend, and Streamlit Community Cloud hosts the user interface.
 
-- `feature_pipeline/run_pipeline.py` - live pipeline entry point
-- `feature_pipeline/pipeline.py` - async ingestion orchestration
-- `feature_pipeline/preparation/ml_ready_dataset.py` - ML-ready dataset builder
-- `feature_pipeline/modeling/trainer.py` - trains the three AQI regression models
-- `feature_pipeline/api/main.py` - AQI prediction API
-- `streamlit_app.py` - Streamlit GUI dashboard
-- `app_pages/explainability.py` - local explanation page for AQI forecasts
-- `scripts/upload_raw_to_supabase.py` - raw Bronze upload
-- `scripts/upload_ml_ready_dataset.py` - raw to Supabase, ML-ready to Hopsworks
-- `scripts/predict_aqi.py` - inference CLI
-- `scripts/run_model_api.py` - start the prediction API
-- `.github/workflows/ci.yml` - basic GitHub Actions validation
-- `reports/project_status_report.md` - full project status and attachment comparison
+The current prediction workflow estimates AQI from supplied city, time, weather, and pollutant conditions. The dashboard is ready for future multi-day forecasting once forecast inputs and a forecast horizon are added to the model contract.
 
-## Run
+## Technology Stack
 
-Current live ingestion:
+- **Python** for ingestion, validation, feature preparation, training, and serving
+- **Pandas and NumPy** for data processing
+- **Scikit-learn** for Ridge, Random Forest, and Gradient Boosting regression
+- **FastAPI and Uvicorn** for the prediction and data API
+- **Streamlit** for the interactive dashboard
+- **Supabase** for raw and model-ready operational data
+- **Hopsworks** for the ML feature store and training source
+- **SHAP** with a local fallback for explainability
+- **GitHub Actions** for CI, hourly ingestion, daily training, and manual backfills
+- **Railway** for the public FastAPI backend
+- **GitHub** for source control and deployment triggers
+
+## Main Features
+
+### Feature pipeline
+
+The pipeline fetches data asynchronously from OpenWeather, Open-Meteo, and AQICN. It records API status, response time, source metadata, errors, timestamps, and run IDs. Records then pass through validation, cleaning, standardization, deduplication, and model-ready projection.
+
+### Bronze, Silver, and Gold layers
+
+- **Bronze:** raw API responses and ingestion metadata
+- **Silver:** validated and standardized records
+- **Gold:** compact records used for training, scoring, reporting, and dashboard data
+
+The latest model-ready records are exposed securely through:
+
+```text
+GET /data/ml-ready
+```
+
+### Historical backfill
+
+Historical dates can be collected for training data and evaluation. Backfills are available from the command line and through a manually triggered GitHub Actions workflow.
+
+### Machine-learning models
+
+The training pipeline compares Ridge Regression, Random Forest Regressor, and Gradient Boosting Regressor. The data is split chronologically so later observations are held out for testing.
+
+Models are evaluated with:
+
+- **RMSE:** penalizes large prediction errors more strongly
+- **MAE:** average absolute AQI error in AQI points
+- **R²:** proportion of target variation explained by the model
+
+The model with the lowest RMSE is selected and recorded in the local model registry.
+
+### Dashboard
+
+The Streamlit dashboard includes AQI overview and trends, city comparisons, single predictions, batch CSV predictions, explainability, model performance, data-quality reports, pipeline reports, and system status.
+
+The prediction page sends requests to the deployed FastAPI backend. Dashboard data is requested from Supabase through the backend, so database service-role credentials are never exposed to the browser.
+
+## Repository Structure
+
+```text
+streamlit_app.py                 Streamlit entry point
+app_pages/                       Dashboard navigation pages
+gui/                             Streamlit services and API client
+feature_pipeline/api/main.py    FastAPI application
+feature_pipeline/pipeline.py    Async ingestion orchestration
+feature_pipeline/modeling/      Training, registry, prediction, explainability
+feature_pipeline/storage/       Supabase, Hopsworks, CSV, and snapshot writers
+feature_pipeline/validation/    Schemas, validation, and cleaning
+feature_pipeline/reporting/     Quality, metrics, and pipeline reports
+database/                        Supabase table schemas
+scripts/                         CLI utilities
+.github/workflows/               CI and scheduled automation
+railway.toml                     Railway API deployment configuration
+requirements.txt                 Python dependencies
+```
+
+## Run Locally
+
+Use Python **3.12** on Windows:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Create a local `.env` file with your private credentials. Never commit this file.
+
+Start FastAPI in one terminal:
+
+```powershell
+python -m uvicorn feature_pipeline.api.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Open the local API documentation at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+
+Start Streamlit in a second terminal:
+
+```powershell
+$env:API_BASE_URL="http://127.0.0.1:8000"
+python -m streamlit run streamlit_app.py
+```
+
+Open the dashboard at [http://localhost:8501](http://localhost:8501).
+
+## Environment Variables
+
+### FastAPI and dashboard data
+
+```env
+SUPABASE_ENABLED=true
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_ML_READY_TABLE=ml_ready_records
+```
+
+### Frontend API URL
+
+For local development:
+
+```env
+API_BASE_URL=http://127.0.0.1:8000
+```
+
+For Streamlit Cloud, add this in **Settings → Secrets**:
+
+```toml
+API_BASE_URL = "https://pearls-aqi-backend-production.up.railway.app"
+```
+
+### Ingestion and Hopsworks
+
+The scheduled pipeline also uses these secrets when enabled:
+
+```env
+OPENWEATHER_API_KEY=...
+OPENWEATHER_LOCATION_IDS={"Karachi":"..."}
+AQICN_API_KEY=...
+OPENMETEO_API_KEY=...
+HOPSWORKS_ENABLED=true
+HOPSWORKS_PROJECT=...
+HOPSWORKS_API_KEY=...
+HOPSWORKS_HOST=...
+HOPSWORKS_ML_FEATURE_GROUP=aqi_ml_ready_features
+HOPSWORKS_ML_FEATURE_GROUP_VERSION=1
+```
+
+## Deployment
+
+### FastAPI on Railway
+
+The backend is deployed at:
+
+```text
+https://pearls-aqi-backend-production.up.railway.app
+```
+
+Railway uses `railway.toml` and starts the application with:
+
+```bash
+uvicorn feature_pipeline.api.main:app --host 0.0.0.0 --port $PORT
+```
+
+Add the Supabase variables to the Railway service. The backend needs them for `/data/ml-ready`.
+
+The backend also needs trained model artifacts for `/predict` and `/batch-predict`:
+
+```text
+models/latest/manifest.json
+models/latest/*.joblib
+```
+
+### Streamlit Cloud
+
+The frontend is deployed at:
+
+```text
+https://10pearls-aqi-predictorr.streamlit.app/
+```
+
+Use these Streamlit Cloud settings:
+
+- Repository: `Muhammad-Irtaza-Ali/Pearls-AQI-Predictor`
+- Branch: `main`
+- Main file: `streamlit_app.py`
+- Python version: `3.12`
+
+Add the `API_BASE_URL` secret shown above, then reboot the app after changing it.
+
+## GitHub Actions Automation
+
+- **CI:** runs on pushes to `main` and pull requests. It installs dependencies, compiles the project, imports FastAPI, and checks the Streamlit entry point.
+- **Hourly ingestion:** runs at `0 * * * *` UTC.
+- **Daily training:** runs at `30 1 * * *` UTC.
+- **Historical backfill:** started manually with date inputs.
+
+Required GitHub repository secrets must be configured before scheduled workflows can access external APIs and stores. Workflow artifacts contain run reports and logs for inspection.
+
+## Useful Commands
+
+Run current ingestion:
 
 ```powershell
 python feature_pipeline\run_pipeline.py
 ```
 
-Or use the helper script:
+Run a historical backfill:
 
 ```powershell
-.\scripts\run_pipeline.ps1
+python feature_pipeline\backfill\backfill.py --start-date 2023-01-01 --end-date 2023-01-07
 ```
 
-Historical backfill:
+Train models from Hopsworks or the automatic fallback source:
 
 ```powershell
-python feature_pipeline\backfill\backfill.py --start-date 2023-01-01 --end-date 2023-01-01
+python scripts\train_models.py --source auto
 ```
 
-Train three ML models from the Hopsworks ML-ready dataset:
+Generate the model evaluation summary:
 
 ```powershell
-python scripts\train_models.py --source hopsworks
+python scripts\generate_model_evaluation.py
 ```
 
-Run the prediction API:
-
-```powershell
-& .\.venv-hopsworks\Scripts\python.exe scripts\run_model_api.py
-```
-
-Run the Streamlit GUI:
-
-```powershell
-& ..\.venv\Scripts\python.exe -m streamlit run streamlit_app.py
-```
-
-## Deployment
-
-This repository is set up for deployment on Render via `render.yaml`.
-
-### Render
-
-1. Push the repo to GitHub.
-2. Connect the repo to Render.
-3. Render will read `render.yaml` and run:
-
-```bash
-streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port $PORT
-```
-
-### Notes
-
-- The Streamlit app is designed to run even when local CSV snapshots are missing.
-- Prediction pages will show a warning if the trained model artifacts are not available in the deployed environment.
-- If you want the deployed app to use the latest ML-ready data and model artifacts, sync them before deployment or store them in your external data services.
-
-## CI / CD
-
-- GitHub Actions CI: `.github/workflows/ci.yml`
-- Hourly ingestion automation: `.github/workflows/ingestion.yml`
-- Daily training automation: `.github/workflows/training.yml`
-- Manual historical backfill: `.github/workflows/backfill.yml`
-- Render auto-deploy config: `render.yaml`
-- The CI workflow checks imports and compile-time health on every push and pull request.
-
-### GitHub Secrets
-
-Configure these in the repository settings before enabling scheduled workflows:
-
-- `OPENWEATHER_API_KEY`
-- `OPENWEATHER_LOCATION_IDS`
-- `AQICN_API_KEY`
-- `OPENMETEO_API_KEY` if you use it
-- `SUPABASE_ENABLED`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_RAW_TABLE`
-- `HOPSWORKS_ENABLED`
-- `HOPSWORKS_PROJECT`
-- `HOPSWORKS_API_KEY`
-- `HOPSWORKS_HOST`
-- `HOPSWORKS_PYTHON_EXE` if you are using the Hopsworks Python helper
-- `HOPSWORKS_FEATURE_GROUP`
-- `HOPSWORKS_FEATURE_GROUP_VERSION`
-- `HOPSWORKS_ML_FEATURE_GROUP`
-- `HOPSWORKS_ML_FEATURE_GROUP_VERSION`
-
-### Automation behavior
-
-- Hourly ingestion runs `feature_pipeline/run_pipeline.py`.
-- Daily training runs `scripts/train_models.py --source auto` and then regenerates the evaluation summary.
-- Manual backfill runs `feature_pipeline/backfill/backfill.py` for the selected date range.
-- If Hopsworks is not configured, the pipeline falls back to local CSV output where possible.
-- Training expects either the Hopsworks feature store to be available or a local `data/gold/ml_ready_records.csv` file to exist.
-- The scheduled jobs upload run artifacts to GitHub Actions so you can inspect logs and outputs after each run.
-
-## Model Registry
-
-The project now maintains a local file-based model registry under `models/registry/`.
-
-### What it stores
-
-- model name
-- model version
-- run ID
-- artifact path
-- artifact hash
-- RMSE / MAE / R2
-- training timestamps
-- feature version information
-- approved current model pointer
-
-### Inspect it
+Inspect the model registry:
 
 ```powershell
 python scripts\model_registry.py
 ```
 
-### How it works
-
-- Every training run is recorded in the registry.
-- The best model from the latest run becomes the approved current model if it is registered.
-- Prediction loading prefers the registry first, then falls back to the local manifest if needed.
-
-## Explainability
-
-The project includes SHAP-based explainability for individual AQI predictions, with a local LIME-style fallback when SHAP is unavailable.
-
-- `app_pages/explainability.py` shows local and global feature importance
-- `app_pages/predictions.py` shows a prediction explanation inline after forecasting
-- Install `shap` to enable the primary explanation path
-
-## Supabase and Hopsworks
-
-Set these in `.env` to sync raw and model-ready data:
-
-```env
-SUPABASE_ENABLED=true
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-SUPABASE_RAW_TABLE=raw_records
-
-HOPSWORKS_ENABLED=true
-HOPSWORKS_PROJECT=your_hopsworks_project
-HOPSWORKS_API_KEY=your_hopsworks_api_key
-HOPSWORKS_HOST=your_hopsworks_host
-HOPSWORKS_PYTHON_EXE=C:\path\to\your\hopsworks\venv\Scripts\python.exe
-HOPSWORKS_FEATURE_GROUP=daily_aqi_features
-HOPSWORKS_FEATURE_GROUP_VERSION=1
-```
-
-The pipeline still keeps local CSV snapshots, and also syncs:
-- bronze/raw rows to Supabase
-- gold/model-ready rows to Hopsworks
-
-For Hopsworks, use a separate Python 3.12/3.13 virtual environment and point `HOPSWORKS_PYTHON_EXE` to that interpreter.
-
-To create the Hopsworks environment after installing Python 3.12 or 3.13:
+Run tests:
 
 ```powershell
-.\scripts\setup_hopsworks_env.ps1
+python -m pytest -q
 ```
 
-## Schema Files
+## Project Status and Honest Limitations
 
-- `database/supabase_schema.sql` creates the raw Supabase table
-- `feature_pipeline/storage/hopsworks_schema.py` defines the Hopsworks feature group contract
+- The ingestion, validation, storage, reporting, API, dashboard, CI, and scheduled workflow pieces are implemented.
+- The project currently predicts AQI from supplied conditions. A complete three-day forecast requires future weather and pollutant inputs or a dedicated time-series forecast model.
+- TensorFlow, PyTorch, Flask, and Apache Airflow are not currently required by the implementation; the project uses scikit-learn, FastAPI, and GitHub Actions instead.
+- Local `data/`, `reports/`, and `models/` outputs are generated artifacts and are excluded from normal source control. Production data is read through Supabase and ML features are stored in Hopsworks.
+- Model accuracy must be reported from a generated evaluation file after training. Do not claim RMSE, MAE, or R² values without a current evaluation run.
+
+## Data and Security Notes
+
+- Keep `.env`, Supabase service-role keys, Hopsworks API keys, and provider API keys private.
+- Do not place service-role credentials in Streamlit Cloud frontend code.
+- The backend acts as the trusted layer for Supabase reads and model inference.
+- Supabase schemas are available in `database/`.
