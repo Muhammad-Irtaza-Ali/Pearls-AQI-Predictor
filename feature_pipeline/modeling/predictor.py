@@ -8,6 +8,7 @@ from typing import Any
 import joblib
 import pandas as pd
 
+from .hopsworks_model import download_approved_model
 from .registry import resolve_registered_model
 
 
@@ -83,6 +84,10 @@ def load_model(
     *,
     model_dir: str | Path = Path("models") / "latest",
 ) -> tuple[str, Any]:
+    remote_model = download_approved_model()
+    if remote_model:
+        return remote_model
+
     registered_model = resolve_registered_model(model_name)
     if registered_model:
         artifact_path = Path(str(registered_model.get("artifact_path", "")))

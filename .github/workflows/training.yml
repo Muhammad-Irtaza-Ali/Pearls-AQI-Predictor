@@ -21,6 +21,8 @@ jobs:
       HOPSWORKS_PYTHON_EXE: ${{ secrets.HOPSWORKS_PYTHON_EXE }}
       HOPSWORKS_ML_FEATURE_GROUP: ${{ secrets.HOPSWORKS_ML_FEATURE_GROUP }}
       HOPSWORKS_ML_FEATURE_GROUP_VERSION: ${{ secrets.HOPSWORKS_ML_FEATURE_GROUP_VERSION }}
+      HOPSWORKS_MODEL_NAME: ${{ secrets.HOPSWORKS_MODEL_NAME }}
+      HOPSWORKS_MODEL_VERSION: ${{ secrets.HOPSWORKS_MODEL_VERSION }}
 
     steps:
       - name: Checkout
@@ -32,7 +34,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && pip install -r requirements.txt
+        run: python -m pip install --upgrade pip && pip install -r requirements-api.txt
 
       - name: Train models
         run: python scripts/train_models.py --source auto

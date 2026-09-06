@@ -20,6 +20,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from config import settings
 from .data_loader import TrainingDataSource, load_training_dataframe
+from .hopsworks_model import publish_model
 from .registry import register_training_run
 
 logger = logging.getLogger("model_trainer")
@@ -277,6 +278,13 @@ def train_three_models(
     manifest_path.write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
 
     register_training_run(report, results, manifest_path=manifest_path)
+
+    best_result = next(result for result in results if result.name == best_model_name)
+    publish_model(
+        best_result.artifact_path,
+        model_name=settings.hopsworks_model_name,
+        metrics={"mae": best_result.mae, "rmse": best_result.rmse, "r2": best_result.r2},
+    )
 
     logger.info("Training complete | best_model=%s | rmse=%.4f", best_model_name, best_metric_value)
     logger.info("Artifacts saved to %s", destination_dir)

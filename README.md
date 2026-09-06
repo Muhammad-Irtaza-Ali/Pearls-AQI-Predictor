@@ -160,6 +160,8 @@ HOPSWORKS_API_KEY=...
 HOPSWORKS_HOST=...
 HOPSWORKS_ML_FEATURE_GROUP=aqi_ml_ready_features
 HOPSWORKS_ML_FEATURE_GROUP_VERSION=1
+HOPSWORKS_MODEL_NAME=aqi_predictor
+HOPSWORKS_MODEL_VERSION=1
 ```
 
 ## Deployment
@@ -186,6 +188,8 @@ The backend also needs trained model artifacts for `/predict` and `/batch-predic
 models/latest/manifest.json
 models/latest/*.joblib
 ```
+
+Training publishes the approved model to the Hopsworks Model Registry under `HOPSWORKS_MODEL_NAME`. Railway downloads that model at runtime. Set `HOPSWORKS_MODEL_VERSION` to the published version; when it is omitted, the backend attempts to use the latest registered version. Railway should install `requirements-api.txt`, which adds the Hopsworks client to the shared application dependencies.
 
 ### Streamlit Cloud
 

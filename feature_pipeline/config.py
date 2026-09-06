@@ -73,6 +73,8 @@ class Settings:
     hopsworks_feature_group_version: int
     hopsworks_ml_feature_group: str
     hopsworks_ml_feature_group_version: int
+    hopsworks_model_name: str
+    hopsworks_model_version: int | None
     openmeteo_api_key: str | None
     aqicn_api_key: str | None
     timeout_seconds: float
@@ -108,6 +110,8 @@ settings = Settings(
     hopsworks_feature_group_version=_get_int("HOPSWORKS_FEATURE_GROUP_VERSION", 1),
     hopsworks_ml_feature_group=os.getenv("HOPSWORKS_ML_FEATURE_GROUP", "aqi_ml_ready_features"),
     hopsworks_ml_feature_group_version=_get_int("HOPSWORKS_ML_FEATURE_GROUP_VERSION", 1),
+    hopsworks_model_name=os.getenv("HOPSWORKS_MODEL_NAME", "aqi_predictor"),
+    hopsworks_model_version=_get_int("HOPSWORKS_MODEL_VERSION", 0) or None,
     openmeteo_api_key=os.getenv("OPENMETEO_API_KEY"),
     aqicn_api_key=os.getenv("AQICN_API_KEY"),
     timeout_seconds=_get_float("REQUEST_TIMEOUT", 20.0),

@@ -1,0 +1,2 @@
+-r requirements.txt
+hopsworks[python]>=4.2.0
