@@ -4,9 +4,11 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from config import settings
 from feature_pipeline.modeling.predictor import predict_dataframe, predict_single
 
 
@@ -49,6 +51,34 @@ def health() -> dict[str, Any]:
         "model_dir": str(MODEL_DIR),
         "model_ready": manifest_path.exists(),
     }
+
+
+@app.get("/data/ml-ready")
+def ml_ready_data(limit: int = 10000) -> dict[str, Any]:
+    if not settings.supabase_enabled:
+        raise HTTPException(status_code=503, detail="Supabase data access is disabled")
+    if not settings.supabase_url or not settings.supabase_service_role_key:
+        raise HTTPException(status_code=503, detail="Supabase credentials are not configured")
+
+    bounded_limit = max(1, min(limit, 10000))
+    url = f"{settings.supabase_url.rstrip('/')}/rest/v1/{settings.supabase_ml_ready_table}"
+    headers = {
+        "apikey": settings.supabase_service_role_key,
+        "Authorization": f"Bearer {settings.supabase_service_role_key}",
+    }
+    params = {"select": "*", "order": "timestamp.desc", "limit": str(bounded_limit)}
+
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            records = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"Unable to read dashboard data: {exc}") from exc
+
+    if not isinstance(records, list):
+        raise HTTPException(status_code=502, detail="Supabase returned an unexpected data format")
+    return {"records": records, "count": len(records)}
 
 
 @app.post("/predict")

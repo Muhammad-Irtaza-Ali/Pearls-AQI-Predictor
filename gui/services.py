@@ -9,6 +9,8 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
+from gui.api_client import APIClientError, fetch_ml_ready_data
+
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 GOLD_DATA_PATH = ROOT_DIR / "data" / "gold" / "ml_ready_records.csv"
@@ -45,6 +47,18 @@ class CitySummary:
 
 @st.cache_data(ttl="30m")
 def load_dataset() -> pd.DataFrame:
+    try:
+        frame = fetch_ml_ready_data()
+    except APIClientError:
+        frame = None
+
+    if frame is not None and not frame.empty:
+        if "timestamp" in frame.columns:
+            frame["timestamp"] = pd.to_datetime(frame["timestamp"], errors="coerce", utc=True)
+        if "data_date" in frame.columns:
+            frame["data_date"] = pd.to_datetime(frame["data_date"], errors="coerce")
+        return frame
+
     if not GOLD_DATA_PATH.exists():
         return pd.DataFrame()
     frame = pd.read_csv(GOLD_DATA_PATH, low_memory=False)

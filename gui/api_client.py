@@ -45,3 +45,11 @@ def batch_predict(dataframe: pd.DataFrame) -> pd.DataFrame:
     if not isinstance(predictions, list):
         raise APIClientError("Backend response did not include predictions.")
     return pd.DataFrame(predictions)
+
+
+def fetch_ml_ready_data() -> pd.DataFrame:
+    payload = _request("GET", "/data/ml-ready")
+    records = payload.get("records")
+    if not isinstance(records, list):
+        raise APIClientError("Backend response did not include dashboard records.")
+    return pd.DataFrame(records)
