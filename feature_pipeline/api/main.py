@@ -8,7 +8,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from config import settings
+from feature_pipeline.config import settings
 from feature_pipeline.modeling.predictor import predict_dataframe, predict_single
 
 
