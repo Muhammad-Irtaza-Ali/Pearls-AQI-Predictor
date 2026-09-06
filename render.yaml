@@ -1,11 +1,13 @@
 services:
   - type: web
-    name: pearls-aqi-predictor
+    name: pearls-aqi-predictor-gui
     env: python
     plan: free
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
+      - key: API_BASE_URL
+        value: https://pearls-aqi-predictor.onrender.com
     buildCommand: python -m pip install --upgrade pip && pip install -r requirements.txt
     startCommand: streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port $PORT
     autoDeploy: true

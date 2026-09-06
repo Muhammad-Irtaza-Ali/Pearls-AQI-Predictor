@@ -7,16 +7,17 @@ import pandas as pd
 import streamlit as st
 
 from gui.components import render_page_header, render_section_title
-from feature_pipeline.modeling.predictor import predict_dataframe, predict_single
+from gui.api_client import API_BASE_URL, APIClientError, batch_predict, predict
 from feature_pipeline.modeling.explainability import explain_prediction
 from gui.services import aqi_category, available_models, best_model_name, city_options, load_dataset
 
 
 render_page_header(
     "AQI predictions",
-    "Run real-time AQI inference from the best trained model using city and weather inputs.",
+    "Run AQI inference through the deployed prediction backend using city and weather inputs.",
     eyebrow="Prediction workspace",
 )
+st.caption(f"Prediction backend: {API_BASE_URL}")
 frame = load_dataset()
 cities = city_options(frame)
 comparison_rows = available_models()
@@ -112,15 +113,15 @@ with st.container(border=True):
                     current_aqi = float(current_row.get("aqi"))
 
         try:
-            result = predict_single(record, model_name=selected_model)
-        except Exception as exc:
+            prediction_response = predict(record)
+        except APIClientError as exc:
             st.error(f"Prediction is unavailable right now: {exc}")
         else:
             left, right = st.columns(2)
             with left:
-                st.metric("Predicted AQI", f"{result.prediction:.2f}", border=True)
+                st.metric("Predicted AQI", f"{float(prediction_response['predicted_aqi']):.2f}", border=True)
             with right:
-                st.metric("Model used", result.model_name, border=True)
+                st.metric("Model used", prediction_response.get("model_name", "Backend model"), border=True)
             if current_aqi is not None:
                 comparison_col1, comparison_col2 = st.columns(2)
                 with comparison_col1:
@@ -128,7 +129,7 @@ with st.container(border=True):
                 with comparison_col2:
                     st.metric("Current category", aqi_category(current_aqi), border=True)
             st.markdown("**Input payload**")
-            st.json(result.input_row)
+            st.json(prediction_response.get("input", record))
 
             with st.expander("Why this prediction?"):
                 try:
@@ -176,8 +177,8 @@ with st.container(border=True):
     if uploaded is not None:
         batch_frame = pd.read_csv(uploaded)
         try:
-            predicted = predict_dataframe(batch_frame, model_name=selected_model)
-        except Exception as exc:
+            predicted = batch_predict(batch_frame)
+        except APIClientError as exc:
             st.error(f"Batch prediction is unavailable right now: {exc}")
         else:
             st.dataframe(predicted.head(200), hide_index=True, width="stretch")
