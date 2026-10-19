@@ -1,5 +1,38 @@
 # 10 Pearls AQI Predictor
 
+An AQI data-and-modeling project spanning ingestion, validation, feature preparation, regression modeling, FastAPI, and a Streamlit dashboard.
+
+**Category:** Data science / ML system
+
+## Start here
+
+The existing README below contains the current setup, hosting, evaluation, and scheduling details. Predictions use supplied conditions; do not describe them as a validated multi-day forecast. Report model metrics only from a current evaluation artifact.
+
+## Repository map
+
+- [`.github/`](./.github)
+- [`.gitignore`](./.gitignore)
+- [`.streamlit/`](./.streamlit)
+- [`app_pages/`](./app_pages)
+- [`database/`](./database)
+- [`feature_pipeline/`](./feature_pipeline)
+- [`gui/`](./gui)
+- [`railway.toml`](./railway.toml)
+- [`reports/`](./reports)
+- [`requirements-api.txt`](./requirements-api.txt)
+
+## Review and reproducibility
+
+This guide describes the repository structure and documented implementation. It does not certify a successful installation, a passing test suite, production readiness, or claimed model accuracy. Keep individual contributions, upstream credits, data sources, and verified results with the relevant implementation.
+
+---
+
+## Existing implementation notes
+
+The original project notes are retained below. Where commands or status differ, use the repository paths and start instructions above.
+
+# 10 Pearls AQI Predictor
+
 An end-to-end data science project for collecting, preparing, monitoring, and predicting Air Quality Index (AQI) values across multiple cities.
 
 ## Project Links
